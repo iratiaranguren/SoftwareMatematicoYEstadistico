@@ -1,0 +1,939 @@
+---
+title: "Software Matemático y Estadístico"
+output: html_document
+date: "2023-06-03"
+author: "Irati Aranguren"
+---
+
+Empezaremos por implementar la de equal width para que funcione para las dos clases anteriores. Primero definiremos la función para que funcione con un solo atributo:
+
+```{r}
+discretizeEW <- function(x, num_bins) {
+  # param x : vector numérico
+  # param num_bins: un número entero que represente en cuántos trozos se quiere partir la lista
+  # return: una variable que contiene dos listas una lista con los valores discretizados y otra con los puntos de corte
+  
+  # Ordenar el vector x
+  x <- sort(x)
+  
+  # Calcular el ancho de cada intervalo
+  bin_width <- (x[length(x)] - x[1]) / num_bins
+  
+  # Calcular los puntos de corte para cada intervalo
+  cut_points <- x[1] + seq(0, num_bins - 1) * bin_width
+  
+  # Discretizar el vector x utilizando el algoritmo equal width
+  x_discretized <- cut(x, breaks=cut_points, labels=FALSE, include.lowest=TRUE)
+  
+  # Crear una lista con los nombres para cada valor de la variable categórica
+  category_names <- sprintf("[%.2f,%.2f)", x[1] + seq(0, num_bins - 1) * bin_width, x[1] + seq(1, num_bins) * bin_width)
+  
+  x_discretized <- as.ordered(factor(x_discretized, levels=1:num_bins, labels=category_names))
+  
+  return(list(x_discretized=x_discretized, cut_points=cut_points))
+}
+
+```
+
+Ejemplo de uso:
+```{r}
+# Crear un vector con algunos valores
+x <- c(4.2, 5.3, 6.7, 8.1, 1.9)
+
+# Discretizar el vector x en 3 intervalos iguales
+result <- discretizeEW(x, 3)
+
+# Consultar el vector discretizado
+result$x_discretized
+
+# Consultar los puntos de corte
+result$cut_points
+```
+
+Para que funcione con el tipo de dato data.frame
+```{r}
+discretizeEW_frame <- function(df, col, num_bins) {
+  # param df: un tipo de dato que sea del tipo data.frame
+  # param col: la columna con la que queremos trabajar en df
+  # paran num_bins: un número entero que represente en cuántos trozos se quiere partir la lista
+  # return: un objeto del tipo data.frame donde se guardarán la lista discretizada y los puntos de corte utilizados
+  
+  # Ordenar el vector x
+  x <- sort(df[[col]])
+  
+  # Calcular el ancho de cada intervalo
+  bin_width <- (x[length(x)] - x[1]) / num_bins
+  
+  # Calcular los puntos de corte para cada intervalo
+  cut_points <- x[1] + seq(0, num_bins - 1) * bin_width
+  
+  # Discretizar el vector x utilizando el algoritmo equal width
+  x_discretized <- cut(x, breaks=cut_points, labels=FALSE, include.lowest=TRUE)
+  
+  # Crear una lista con los nombres para cada valor de la variable categórica
+  category_names <- sprintf("[%.2f,%.2f)", x[1] + seq(0, num_bins - 1) * bin_width, x[1] + seq(1, num_bins) * bin_width)
+  
+  x_discretized <- as.ordered(factor(x_discretized, levels=1:num_bins, labels=category_names))
+  
+  # Reemplazar los valores del data.frame por los discretizados
+  df[[col]] <- x_discretized
+  
+  return(list(df=df, cut_points=cut_points))
+}
+
+```
+
+Ejemplo de uso:
+```{r}
+# Crear un data.frame con algunos valores
+df <- data.frame(x=c(4.2, 5.3, 6.7, 8.1, 1.9))
+
+# Discretizar la columna 'x' en 3 intervalos iguales
+result <- discretizeEW_frame(df, "x", 3)
+
+# Consultar el data.frame discretizado
+result$df
+
+# Consultar los puntos de corte
+result$cut_points
+```
+
+Haremos lo mismo con una función que aplique el algoritmo equal frecuency. Primero para un solo atributo:
+```{r}
+discretizeEF <- function(x, num_bins) {
+  # param x : vector numérico
+  # param num_bins: un número entero que represente en cuántos trozos se quiere partir la lista
+  # return: una variable que contiene dos listas una lista con los valores discretizados y otra con los puntos de corte
+
+  # Calcular el número de elementos que debe tener cada intervalo
+  num_elements_per_bin <- length(x) %/% num_bins
+
+  # Define la lista de puntos de corte
+  cut_points <- c(x[1])
+
+  # Recorre el rango del número de intervalos que quieres crear
+  for (i in 1:num_bins) {
+    # Calcula el índice del elemento que será el límite superior del intervalo
+    index <- (i + 1) * num_elements_per_bin
+    # Añade el elemento con el índice calculado al final de la lista cut_points
+    cut_points <- c(cut_points, x[index])
+  }
+
+  # Define la lista de valores discretizados
+  x_discretized <- integer(length(x))
+
+  # Recorre el vector x elemento a elemento
+  for (i in 1:length(x)) {
+    # Compara cada elemento con los límites de los intervalos para determinar a qué intervalo pertenece
+    for (j in 1:length(cut_points)) {
+      if (x[i] <= cut_points[j]) {
+        x_discretized[i] <- j
+        break
+      }
+    }
+  }
+  return(list(x_discretized=x_discretized, cut_points=cut_points))
+}
+```
+
+Ejemplo de uso:
+```{r}
+# Crear un vector con algunos valores
+x <- c(4.2, 5.3, 6.7, 8.1, 1.9)
+
+# Discretizar el vector x en 3 intervalos iguales
+result <- discretizeEF(x, 3)
+
+# Consultar el vector discretizado
+result$x_discretized
+
+# Consultar los puntos de corte
+result$cut_points
+
+```
+
+data.frame:
+```{r}
+discretizeEF_frame <- function(df, values_column, num_bins) {
+  # param df: un tipo de dato que sea del tipo data.frame
+  # param values_column: el nombre de la columna que contiene los valores numéricos a discretizar
+  # param num_bins: un número entero que represente en cuántos trozos se quiere partir la lista
+  # return: una variable que contiene dos listas una lista con los valores discretizados y otra con los puntos de corte
+
+  # Obtener los valores a discretizar del data.frame
+  x <- df[[values_column]]
+
+  # Calcular el número de elementos que debe tener cada intervalo
+  num_elements_per_bin <- length(x) %/% num_bins
+
+  # Define la lista de puntos de corte
+  cut_points <- c(x[1])
+
+  # Recorre el rango del número de intervalos que quieres crear
+  for (i in 1:num_bins) {
+    # Calcula el índice del elemento que será el límite superior del intervalo
+    index <- (i + 1) * num_elements_per_bin
+    # Añade el elemento con el índice calculado al final de la lista cut_points
+    cut_points <- c(cut_points, x[index])
+  }
+
+  # Define la lista de valores discretizados
+  x_discretized <- integer(length(x))
+
+  # Recorre el vector x elemento a elemento
+  for (i in 1:length(x)) {
+    # Compara cada elemento con los límites de los intervalos para determinar a qué intervalo pertenece
+    for (j in 1:length(cut_points)) {
+      if (x[i] <= cut_points[j]) {
+        x_discretized[i] <- j
+        break
+      }
+    }
+  }
+  return(list(x_discretized=x_discretized, cut_points=cut_points))
+}
+
+```
+
+Ejemplo de uso:
+```{r}
+# Crear un data.frame con algunos valores
+df <- data.frame(x=c(4.2, 5.3, 6.7, 8.1, 1.9))
+
+# Discretizar la columna 'x' en 3 intervalos iguales
+result <- discretizeEF_frame(df, "x", 2)
+
+# Consultar el data.frame discretizado
+result$df
+
+# Consultar los puntos de corte
+result$cut_points
+```
+
+El cálculo de la varianza:
+```{r}
+variance <- function(matrix) {
+  # param matrix: una matriz numérica
+  # return variances: una lista con las varianzas
+  
+  variances <- c()
+  for (i in 1:ncol(matrix)) {
+    column <- matrix[,i]
+    mean <- mean(column)
+    variance <- sum((x - mean)^2, x=column) / length(column)
+    variances <- c(variances, variance)
+  }
+  return(variances)
+}
+
+```
+
+Ejemplo de uso:
+```{r}
+# Crear una matriz con algunos valores
+matrix <- matrix(c(2, 3, 5, 7, 11, 13, 17, 19, 23), nrow=3, ncol=3)
+
+# Calcular las varianzas de cada columna de la matriz
+variance(matrix)
+
+```
+
+data.frame:
+```{r}
+calculate_variance <- function(attribute) {
+  # Calcular la varianza de los valores de un atributo
+  
+  # Obtener los valores del atributo
+  values <- attribute
+  
+  # Calculate the mean of the attribute values
+  mean_val <- mean(values, na.rm = TRUE)
+  
+  # Calcular la media de los valores de los atributos
+  squared_diff_sum <- sum((values - mean_val)^2, na.rm = TRUE)
+  
+  # Calcular la varianza
+  variance <- squared_diff_sum / length(values)
+  
+  return(variance)
+}
+
+```
+
+Ejemplo de uso:
+```{r}
+# Crear un data.frame con valores de atributos
+df <- data.frame(attr = c(1.0, 2.0, 3.0, 4.0, 5.0),
+                 attr1 = c(10.0, 12.0, 14.0, 16.0, 18.0),
+                 attr2 = c(5.0, 10.0, 15.0, 20.0, 25.0))
+
+# Calcular la varianza de cada atributo
+variance <- calculate_variance(df$attr)
+variance1 <- calculate_variance(df$attr1)
+variance2 <- calculate_variance(df$attr2)
+
+# Imprimir las varianzas
+cat("Variance:", variance, "\n")
+cat("Variance:", variance1, "\n")
+cat("Variance:", variance2, "\n")
+
+
+```
+```{r}
+calculate_entropy <- function(attribute) {
+  # Calcular la entropía de los valores de un atributo
+  
+  data <- attribute
+  
+  # Contar las apariciones de cada valor único en los dato
+  value_counts <- table(data)
+  
+  # Calcular las probabilidades de cada valor único
+  total_count <- length(data)
+  probabilities <- value_counts / total_count
+  
+  # Calcular la entropía utilizando las probabilidades
+  entropy <- -sum(probabilities * log2(probabilities), na.rm = TRUE)
+  
+  return(entropy)
+}
+```
+
+```{r}
+# Crear un data.frame con valores de atributo
+df <- data.frame(
+  attribute = c(1, 2, 3, 5, 8, 19)
+)
+
+# Calcular la entropía
+entropy <- calculate_entropy(df$attribute)
+
+# Imprimir la entropía
+print(entropy)
+
+```
+Calcular el AUC:
+
+```{r}
+calculate_auc <- function(attribute, class_attr) {
+  values <- attribute
+  class_values <- class_attr
+  
+  # Ordenar los valores en función de los atributos en orden descendente
+  sorted_indices <- order(-values)
+  sorted_values <- values[sorted_indices]
+  sorted_classes <- class_values[sorted_indices]
+  
+  # Convertir en booleanos
+  sorted_classes <- sorted_classes > 0
+  
+  # Calcular el número de casos positivos
+  num_positive <- sum(sorted_classes)
+  
+  # Calcular el número de casos negativos
+  num_negative <- length(sorted_classes) - num_positive
+  
+  # Calcular el número total de instancias
+  num_total <- length(sorted_classes)
+  
+  # Calcular la tasa de verdaderos positivos (TPR) y la tasa de falsos positivos (FPR) en cada umbral
+  tpr_values <- c(0)
+  fpr_values <- c(0)
+  
+  for (i in 1:num_total) {
+    if (sorted_classes[i]) {
+      tpr_values <- c(tpr_values, tpr_values[i] + 1 / num_positive)
+      fpr_values <- c(fpr_values, fpr_values[i])
+    } else {
+      tpr_values <- c(tpr_values, tpr_values[i])
+      fpr_values <- c(fpr_values, fpr_values[i] + 1 / num_negative)
+    }
+  }
+  
+  # Calcular el área bajo la curva ROC
+  auc <- sum((fpr_values[-1] - fpr_values[-num_total]) * (tpr_values[-num_total] + tpr_values[-1]) / 2)
+  
+  return(auc)
+}
+
+```
+
+```{r}
+# Crear marcos de datos
+df <- data.frame(Attribute = c(0.2, 0.5, 0.8, 0.3, 0.6))
+class_attr <- data.frame(Class = c(FALSE, TRUE, TRUE, FALSE, TRUE))
+
+df2 <- data.frame(Attribute = c(0.1, 0.2, 0.3, 0.4, 0.5))
+class_attr2 <- data.frame(Class = c(FALSE, FALSE, TRUE, TRUE, TRUE))
+
+df3 <- data.frame(Attribute = c(0.9, 0.7, 0.2, 0.5, 0.8))
+class_attr3 <- data.frame(Class = c(TRUE, FALSE, TRUE, FALSE, TRUE))
+
+# Calcular AUC
+auc_mine <- calculate_auc(df$Attribute, class_attr$Class)
+auc_mine2 <- calculate_auc(df2$Attribute, class_attr2$Class)
+auc_mine3 <- calculate_auc(df3$Attribute, class_attr3$Class)
+
+# Imprimir los valores de AUC
+print(auc_mine)
+print(auc_mine2)
+print(auc_mine3)
+
+```
+Calculo de métricas:
+```{r}
+contains_integer <- function(lst) {
+  for (elem in lst) {
+    if (is.numeric(elem) && elem %% 1 == 0) {
+      return(TRUE)
+    }
+  }
+  return(FALSE)
+}
+
+
+calculate_attribute_metric <- function(attribute, class_attr=NULL) {
+  if (is.numeric(attribute) && !contains_integer(attribute)) {
+    variance <- calculate_variance(attribute)
+    auc <- calculate_auc(attribute, class_attr)
+    return(list(variance = variance, auc = auc))
+  } else if (contains_integer(attribute)) {
+    entropy <- calculate_entropy(attribute)
+    return(list(entropy = entropy))
+  } else {
+    stop("Invalid attribute type")
+  }
+}
+```
+
+Ejemplo de uso:
+```{r}
+df <- data.frame(
+  attribute = c(1, 2, 3, 4, 5),
+  class_attr = c(FALSE, TRUE, FALSE, TRUE, TRUE),
+  attribute2 = c(0.2, 0.5, 0.8, 0.3, 0.6)
+)
+metrics <- calculate_attribute_metric(df$attribute)
+print(metrics)
+metrics2 <- calculate_attribute_metric(df$attribute2, df$class_attr)
+print(metrics2)
+
+```
+
+```{r}
+df <- data.frame(Attribute = c(0.2, 0.5, 0.8, 0.3, 0.6))
+class_attr <- data.frame(Class = c(0, 1, 1, 0, 1))
+
+df2 <- data.frame(Attribute = c(0.1, 0.2, 0.3, 0.4, 0.5))
+class_attr2 <- data.frame(Class = c(0, 0, 1, 1, 1))
+
+df3 <- data.frame(Attribute = c(0.9, 0.7, 0.2, 0.5, 0.8))
+class_attr3 <- data.frame(Class = c(1, 0, 1, 0, 1))
+
+auc_mine <- calculate_auc(df$Attribute, df$Class)
+auc_mine2 <- calculate_auc(df2$Attribute, df2$Class)
+auc_mine3 <- calculate_auc(df3$Attribute, df3$Class)
+
+print(auc_mine)
+print(auc_mine2)
+print(auc_mine3)
+
+```
+
+Normalización de las variables numéricas que sean de tipo data.frame
+```{r}
+normalize_column <- function(df, col) {
+  # param df: un tipo de dato que sea del tipo data.frame
+  # param col: la columna con la que queremos trabajar en df
+  # return df: tipo de dato del tipo data.frame ya normalizado
+  
+  # Comprobar que el atributo es de tipo numérico
+  if (!is.numeric(df[[col]])) {
+    stop("Attribute must be numeric")
+  }
+  
+  # Calcular el mínimo y el máximo de los valores
+  min_val <- min(df[[col]])
+  max_val <- max(df[[col]])
+  
+  # Normalizar cada valor de la columna
+  df[[col]] <- (df[[col]] - min_val) / (max_val - min_val)
+  
+  return (df)
+}
+
+```
+
+Ejemplo de uso:
+```{r}
+# Crear un data.frame con dos columnas
+df <- data.frame(a = c(1, 2, 3, 4, 5), b = c("a", "b", "c", "d", "e"))
+
+# Normalizar la columna "a" del data.frame
+df <- normalize_column(df, "a")
+
+# Mostrar el data.frame con la columna "a" normalizada
+df
+```
+
+Estandarización de las variables numéricas que sean de tipo data.frame
+```{r}
+standardize_variable <- function(df, col) {
+  # param df: un tipo de dato que sea del tipo data.frame
+  # param col: la columna con la que queremos trabajar en df
+  # return df: tipo de dato del tipo data.frame ya normalizado
+  
+  # Calcular la media y la desviación estándar de la columna
+  mean <- mean(df[[col]])
+  std <- sd(df[[col]])
+  
+  # Estandarizar los valores de la columna
+  df[[col]] <- (df[[col]] - mean) / std
+  
+  return (df)
+}
+
+```
+
+Ejemplo de uso:
+```{r}
+# Crear un data.frame con dos columnas
+df <- data.frame(a = c(3.5, 2.75, 4.5, 6.75, 10), b = c("a", "b", "c", "d", "e"))
+
+# Normalizar la columna "a" del data.frame
+standardize_variable(df, "a")
+
+# Mostrar el data.frame con la columna "a" normalizada
+df
+```
+
+Ahora debemos hacer un filtrado de variables en base a las métricas implementadas. Es decir, partiendo de un dataset, obtener uno nuevo donde todas las variables cumplan los requisitos indicados, por ejemplo, una entropía superior a cierto umbral.
+```{r}
+filter_variables <- function(df, attribute_names, metric_function, threshold) {
+  # param df: un tipo de dato que sea del tipo data.frame
+  # param attribute_names: nombres de los atributos que se quiran filtrar en una lista
+  # param metric_function: la función de métrica que se quiera utilizar para filtrar
+  # param threshold: el umbral que se quieral aplicar
+  # return filtered_df: tipo de dato del tipo data.frame ya filtrado
+  
+  # Crea una lista vacía para guardar los nombres de las variables seleccionadas
+  selected_attributes <- character(0)
+  
+  # Recorre cada nombre de variable en attribute_names
+  for (attribute_name in attribute_names) {
+    # Obtiene la columna del data.frame con el nombre de la variable
+    attribute <- df[, attribute_name]
+    # Aplica la función de métrica al atributo
+    metric_value <- metric_function(attribute)
+    # Si el valor de la métrica cumple el requisito, añade el nombre de la variable a la lista de seleccionadas
+    if (metric_value > threshold) {
+      selected_attributes <- c(selected_attributes, attribute_name)
+    }
+  }
+  
+  # Crea un nuevo data.frame con las columnas seleccionadas
+  filtered_df <- df[, selected_attributes]
+  
+  # Devuelve el data.frame filtrado
+  return(filtered_df)
+}
+
+```
+
+Un ejemplo de métrica:
+
+```{r}
+calculate_entropy <- function(attribute) {
+  # param attribute: un tipo de dato que sea del tipo data.frame que contenga dos listas
+  # return entropy: un valor que represente la entropía entre las dos lista en attribute
+  
+  # Obtener los valores del atributo
+  values <- attribute
+
+  # Calcular la cantidad de elementos que hay en cada clase
+  class_counts <- table(values)
+
+  # Calcular la probabilidad de cada clase
+  probabilidades <- class_counts / sum(class_counts)
+
+  # Calcular la entropía utilizando la fórmula indicada
+  for (p in probabilidades){
+    entropy <- - sum(p * log2(p))
+  }
+
+  return (entropy)
+}
+
+```
+
+Ejemplo de uso:
+```{r}
+df <- data.frame(x = c(1, 2, 3, 4, 5, 6), y = c(1, 2, 3, 4, 5, 6))
+
+calculate_entropy(df$x)
+
+```
+
+
+```{r}
+filter_variables <- function(dataset, attribute_names, metric_function, threshold) {
+  # param dataset:  un data.frame que contiene attrbutes
+  # param attribute_names: nombres de los atributos a filtrar en forma de lista
+  # param metric_function: la función métrica que se utilizará para el filtrado
+  # param threshold: el umbral que debe aplicarse
+  # return filtered_dataset: el conjunto de datos filtrado
+  
+  # Crear una lista para almacenar los atributos seleccionados
+  selected_attributes <- list()
+  
+  # Iterar sobre cada atributo del conjunto de datos
+  for (attribute_name in attribute_names) {
+    # Obtener el atributo
+    attribute <- dataset[[attribute_name]]
+    
+    # Aplicar la función métrica
+    metric_value <- metric_function(attribute)
+    print(metric_value)
+    
+    # Si el valor de la métrica cumple el requisito, añada el atributo a la lista de atributos seleccionados
+    if (metric_value > threshold) {
+      selected_attributes[[attribute_name]] <- attribute
+    }
+  }
+  
+  # Crear un nuevo data.frame con los atributos seleccionados
+  filtered_dataset <- do.call(data.frame, selected_attributes)
+  
+  # Devuelve el conjunto de datos filtrado
+  return(filtered_dataset)
+}
+
+```
+
+```{r}
+# Crear el conjunto de datos data.frame
+dataset <- data.frame(
+  attr_1 = c(1, 2, 3, 4, 5),
+  attr_2 = c(6, 7, 8, 9, 10)
+)
+
+dataset2 <- data.frame(attr_3 = c(1, 2, 3))
+
+# Definir el umbral de filtrado
+threshold <- 2
+
+# Filtrar las variables en función de la entropía
+filtered_dataset <- filter_variables(dataset, c("attr_1", "attr_2"), calculate_entropy, threshold)
+filtered_dataset2 <- filter_variables(dataset2, c("attr_3"), calculate_entropy, threshold)
+
+# Imprimir el conjunto de datos filtrado
+print(filtered_dataset)
+print(filtered_dataset2)
+```
+
+Cálculo de la correlación (información mutua en el caso de variables categóricas) por pares entre variables de un data.frame. La función deberá considerar de que tipo es cada variable.
+
+```{r}
+calculate_pearson_correlation <- function(attribute1, attribute2) {
+  # param attribute1: una lista numérica
+  # param attribute2 : una lista numérica
+  # return correlation: la correlación de pearson de las dos listas
+  
+  # Calcular la media de cada atributo
+  mean1 <- mean(attribute1)
+  mean2 <- mean(attribute2)
+  
+  # Calcular la correlación de Pearson
+  correlation <- sum((attribute1 - mean1) * (attribute2 - mean2)) / sqrt(sum((attribute1 - mean1)^2) * sum((attribute2 - mean2)^2))
+  
+  return(correlation)
+}
+
+```
+
+```{r}
+calculate_pearson_correlation <- function(x, y) {
+  # Calcular el coeficiente de correlación de Pearson entre x e y
+  
+  # Comprobar si los vectores de entrada tienen la misma longitud
+  if (length(x) != length(y)) {
+    stop("Input vectors must have the same length")
+  }
+  
+  # Calcular la media de cada variable
+  x_mean <- mean(x)
+  y_mean <- mean(y)
+  
+  # Calcular el numerador y el denominador de la fórmula de correlación de Pearson
+  numerator <- sum((x - x_mean) * (y - y_mean))
+  denominator <- sqrt(sum((x - x_mean)^2) * sum((y - y_mean)^2))
+  
+  # Comprueba si el denominador es distinto de cero
+  if (denominator == 0) {
+    stop("Denominator of the correlation formula is zero")
+  }
+  
+  # Calcular y devolver el coeficiente de correlación de Pearson
+  return(numerator / denominator)
+}
+```
+
+
+```{r}
+calculate_correlation <- function(data, attribute1_name, attribute2_name) {
+  # param df: un tipo de dato que sea del tipo data.frame
+  # param attribute1_name: nombre del atributo con el que se quiere calcular la correlación
+  # param attribute2_name: nombre del atributo con el que se quiere calcular la correlación respecto al parámetro anterior
+  # return correlación: valor que representa la correlación entre los dos parámetros de entrada
+  
+  # Obtener los atributos a comparar
+  attribute1 <- data[, attribute1_name]
+  attribute2 <- data[, attribute2_name]
+  
+  # Comprobar que los atributos son numéricos
+  if (!is.numeric(attribute1) || !is.numeric(attribute2)) {
+    stop("Attributes must be numeric")
+  }
+  
+  # Calcular la correlación de Pearson
+  correlation <- calculate_pearson_correlation(attribute1, attribute2)
+  
+  return(correlation)
+}
+
+```
+
+Ejemplo de uso:
+```{r}
+data <- data.frame(a = c(1, 2, 3, 4, 5), b = c(2, 3, 4, 5, 6))
+calculate_correlation(data, "a", "b")
+
+```
+
+```{r}
+calculate_mutual_information <- function(x, y) {
+  # Calcular la información mutua entre dos variables categóricas
+  
+  # Comprobar si los vectores de entrada tienen la misma longitud
+  print(x)
+  print(y)
+  if (length(x) != length(y)) {
+    stop("Input vectors must have the same length")
+  }
+  
+  n <- length(x)
+  
+  # Crear tablas de frecuencia para x e y
+  freq_table_x <- table(x)
+  freq_table_y <- table(y)
+  
+  # Calcular la distribución de probabilidad conjunta
+  joint_prob <- table(x, y) / n
+  
+  # Calculate the marginal probability distributions
+  marg_prob_x <- prop.table(freq_table_x)
+  marg_prob_y <- prop.table(freq_table_y)
+  
+  # Calcular las distribuciones marginales de probabilidad
+  mutual_info <- 0
+  
+  for (xi in names(marg_prob_x)) {
+    for (yi in names(marg_prob_y)) {
+      prob_x <- marg_prob_x[xi]
+      prob_y <- marg_prob_y[yi]
+      prob_xy <- joint_prob[xi, yi]
+      
+      ifelse(prob_xy == 0, mutual_info, mutual_info <- mutual_info + prob_xy * log2(prob_xy / (prob_x * prob_y)))
+    }
+  }
+  
+  return(mutual_info)
+}
+
+```
+
+```{r}
+calculate_pairwise_metric <- function(dataset) {
+  # Calculate the pairwise metric (Pearson correlation or mutual information) between attributes in a dataset
+  
+  # Calcular la métrica por pares (correlación de Pearson o información mutua) entre atributos de un conjunto de datos
+  attributes <- dataset
+  num_attributes <- ncol(attributes)
+  
+  # Inicializar la lista de correlaciones
+  correlations <- list()
+  
+  # Iterar sobre pares de atributos
+  for (i in 1:(num_attributes - 1)) {
+    for (j in (i + 1):num_attributes) {
+      attr_i <- attributes[, i]
+      attr_j <- attributes[, j]
+      
+      # Calcular la correlación en función de los tipos de atributos
+      if (is.numeric(attr_i) && is.numeric(attr_j)) {
+        correlation <- calculate_pearson_correlation(attr_i, attr_j)
+      } else if (!identical(attr_i, attr_j)) {
+        correlation <- calculate_mutual_information(attr_i, attr_j)
+      } else {
+        correlation <- NaN
+      }
+      
+      # Almacenar la correlación en la lista
+      correlations[[paste(colnames(attributes)[i], colnames(attributes)[j], sep = ",")]] <- correlation
+    }
+  }
+  
+  return(correlations)
+}
+
+```
+
+Ejemplo de uso:
+```{r}
+# Crear un data.frame
+df <- data.frame(
+  Attribute1 = c(1.0, 2.0, 3.0, 4.0, 5.0),
+  Attribute2 = c(2, 4, 6, 8, 10),
+  Attribute3 = c("A", "B", "A", "B", "A")
+)
+
+# Imprimir las correlaciones
+correlations <- calculate_pairwise_metric(df)
+for (attr_pair in names(correlations)) {
+  correlation <- correlations[[attr_pair]]
+  cat("Correlation between '", attr_pair, "': ", correlation, "\n", sep = "")
+}
+
+```
+
+Plots para el AUC y para las matrices de correlación/información mutua
+
+```{r}
+# Trazar la curva ROC
+plot_roc_curve <- function(attribute, class_attr) {
+  # Calcular AUC utilizando la función calculate_auc
+  auc <- calculate_auc(attribute$values, class_attr$values)
+
+  # Obtener los valores de los atributos y las etiquetas de clase
+  values <- attribute$values
+  class_values <- class_attr$values
+
+  # Ordenar los valores en función de los atributos en orden descendente
+  sorted_indices <- order(-values)
+  sorted_values <- values[sorted_indices]
+  sorted_classes <- class_values[sorted_indices]
+
+  # Calcular la tasa de verdaderos positivos (TPR) y la tasa de falsos positivos (FPR) en cada umbral
+  tpr_values <- c(0)
+  fpr_values <- c(0)
+
+  for (i in seq_along(sorted_classes)) {
+    if (sorted_classes[i] == 1) {
+      tpr_values <- c(tpr_values, tpr_values[length(tpr_values)] + 1)
+      fpr_values <- c(fpr_values, fpr_values[length(fpr_values)])
+    } else {
+      tpr_values <- c(tpr_values, tpr_values[length(tpr_values)])
+      fpr_values <- c(fpr_values, fpr_values[length(fpr_values)] + 1)
+    }
+  }
+
+  # Normalizar los valores TPR y FPR
+  tpr_values <- tpr_values / tpr_values[length(tpr_values)]
+  fpr_values <- fpr_values / fpr_values[length(fpr_values)]
+
+  # Trazar la curva ROC
+  plot(fpr_values, tpr_values, type = "l", xlim = c(0, 1), ylim = c(0, 1),
+       xlab = "False Positive Rate", ylab = "True Positive Rate",
+       main = "ROC Curve", lwd = 2)
+  abline(a = 0, b = 1, lty = 2, col = "gray")
+  legend("bottomright", legend = paste("AUC =", round(auc, 2)), bty = "n")
+  grid()
+}
+
+```
+
+Ejemplo de uso:
+
+```{r}
+# Generar valores aleatorios de atributos y etiquetas de clase para la clasificación binaria
+attribute_values <- runif(100)
+class_labels <- sample(c(0, 1), 100, replace = TRUE)
+
+# Crear los objetos
+attribute <- list(name = "Attribute", dtype = "numeric", values = attribute_values)
+class_attr <- list(name = "Class", dtype = "integer", values = class_labels)
+
+# Trazar la curva ROC
+plot_roc_curve(attribute, class_attr)
+
+```
+
+```{r}
+plot_metric_matrix <- function(dataset) {
+  # Calcular la matriz métrica por pares
+  correlations <- calculate_pairwise_metric(dataset)
+  
+  # Obtener los nombres de los atributos del conjunto de datos
+  attribute_names <- names(dataset)
+  
+  # Create an empty matrix to store the metric values
+  metric_matrix <- matrix(0, nrow = length(attribute_names), ncol = length(attribute_names))
+  
+  # Crear una matriz vacía para almacenar los valores métricos
+  for (i in 1:(length(attribute_names) - 1)) {
+    for (j in (i + 1):length(attribute_names)) {
+      attr_i_name <- attribute_names[i]
+      attr_j_name <- attribute_names[j]
+      metric <- correlations[[paste(attr_i_name, attr_j_name, sep = ",")]]
+      metric_matrix[i, j] <- metric
+      metric_matrix[j, i] <- metric
+    }
+  }
+  
+  # Crear un DataFrame a partir de la matriz métrica
+  df <- data.frame(metric_matrix, row.names = attribute_names)
+  
+  # Trazar la matriz métrica
+  heatmap(df, annot = TRUE, col = colorRampPalette(c("white", "coolwarm"))(100), 
+          cex.main = 1.2, cex.axis = 1.0, main = "Metric Matrix")
+}
+```
+
+Ejemplo de uso:
+```{r}
+# Crear un conjunto de datos de ejemplo
+dataset <- data.frame(
+  Attr1 = c(1, 2, 3, 4, 5),
+  Attr2 = c(6.1, 7.2, 8.3, 9.4, 10.5),
+  Attr3 = c("A", "B", "C", "D", "E")
+)
+
+# Calcular la matriz métrica por pares
+correlations <- calculate_pairwise_metric(dataset)
+
+# Obtener los nombres de los atributos
+attribute_names <- names(dataset)
+
+# Crear una matriz vacía para almacenar los valores métricos
+metric_matrix <- matrix(0, nrow = length(attribute_names), ncol = length(attribute_names))
+
+# Rellenar la matriz métrica con los valores de correlación
+for (i in 1:(length(attribute_names) - 1)) {
+  for (j in (i + 1):length(attribute_names)) {
+    attr_i_name <- attribute_names[i]
+    attr_j_name <- attribute_names[j]
+    metric <- correlations[[paste(attr_i_name, attr_j_name, sep = ",")]]
+    metric_matrix[i, j] <- metric
+    metric_matrix[j, i] <- metric
+  }
+}
+
+# Establecer los nombres de fila y columna de la matriz métrica
+row.names(metric_matrix) <- attribute_names
+colnames(metric_matrix) <- attribute_names
+
+# Trazar la matriz métrica
+heatmap(metric_matrix, annot = TRUE, col = colorRampPalette(c("white", "blue"))(100), 
+        cex.main = 1.2, cex.axis = 1.0, main = "Metric Matrix")
+```
+
